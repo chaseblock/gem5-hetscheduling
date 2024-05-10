@@ -564,6 +564,8 @@ for variant_path in variant_paths:
             # On FreeBSD we need libthr.
             env.Append(LIBS=['thr'])
 
+        env.Append(LIBS=['pfm'])
+
         with gem5_scons.Configure(env) as conf:
             conf.CheckLinkFlag('-Wl,--as-needed')
 

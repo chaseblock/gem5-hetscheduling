@@ -78,3 +78,6 @@ class BaseKvmCPU(BaseCPU):
 
     hostFreq = Param.Clock("2GHz", "Host clock frequency")
     hostFactor = Param.Float(1.0, "Cycle scale factor")
+    hostFpFactor = Param.Float(
+        1.0, "Cycle scale factor for floating point instructions"
+    )

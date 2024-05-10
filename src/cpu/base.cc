@@ -409,6 +409,8 @@ BaseCPUStats::BaseCPUStats(statistics::Group *parent)
     : statistics::Group(parent),
       ADD_STAT(numCycles, statistics::units::Cycle::get(),
                "Number of cpu cycles simulated"),
+      ADD_STAT(cpuCycles, statistics::units::Cycle::get(),
+               "Number of cpu cycles which were simulated using the core model (instead of synchronizing steps)"),
       ADD_STAT(cpi, statistics::units::Rate<
                 statistics::units::Cycle, statistics::units::Count>::get(),
                "CPI: cycles per instruction (core level)"),

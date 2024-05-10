@@ -71,9 +71,9 @@ class BaseKvmTimer
      * @param hostFactor Performance scaling factor
      * @param hostFreq Clock frequency of the host
      */
-    BaseKvmTimer(int signo, float hostFactor, Tick hostFreq)
+    BaseKvmTimer(int signo, float hostFactor, float hostFpFactor, Tick hostFreq)
         : signo(signo), _resolution(0),
-          hostFactor(hostFactor), hostFreq(hostFreq) {};
+          hostFactor(hostFactor), hostFpFactor(hostFpFactor), hostFreq(hostFreq) {};
     virtual ~BaseKvmTimer() {};
 
     /**
@@ -113,6 +113,10 @@ class BaseKvmTimer
         return _resolution;
     }
 
+    float realFactor(float fp_ratio) {
+      return hostFactor * (1 - fp_ratio) + hostFpFactor * fp_ratio;
+    }
+
     /**
      * Convert cycles executed on the host into Ticks executed in the
      * simulator. Scales the results using the hostFactor to take CPU
@@ -120,8 +124,8 @@ class BaseKvmTimer
      *
      * @return Host cycles executed in VM converted to simulation ticks
      */
-    Tick ticksFromHostCycles(uint64_t cycles) {
-        return cycles * hostFactor * hostFreq;
+    Tick ticksFromHostCycles(uint64_t cycles, float fp_ratio) {
+        return cycles * realFactor(fp_ratio) * hostFreq;
     }
 
     /**
@@ -131,8 +135,8 @@ class BaseKvmTimer
      *
      * @return Nanoseconds executed in VM converted to simulation ticks
      */
-    Tick ticksFromHostNs(uint64_t ns) {
-        return ns * hostFactor * sim_clock::as_float::ns;
+    Tick ticksFromHostNs(uint64_t ns, float fp_ratio) {
+        return ns * realFactor(fp_ratio) * sim_clock::as_float::ns;
     }
 
   protected:
@@ -149,8 +153,8 @@ class BaseKvmTimer
      *
      * @return Simulation ticks converted into nanoseconds on the host
      */
-    uint64_t hostNs(Tick ticks) {
-        return ticks / (sim_clock::as_float::ns * hostFactor);
+    uint64_t hostNs(Tick ticks, float fp_ratio) {
+        return ticks / (sim_clock::as_float::ns * realFactor(fp_ratio));
     }
 
     /**
@@ -159,8 +163,8 @@ class BaseKvmTimer
      *
      * @return Simulation ticks converted into CPU cycles on the host
      */
-    uint64_t hostCycles(Tick ticks) {
-        return ticks / (hostFreq * hostFactor);
+    uint64_t hostCycles(Tick ticks, float fp_ratio) {
+        return ticks / (hostFreq * realFactor(fp_ratio));
     }
 
     /** Signal to deliver when the timer times out */
@@ -172,6 +176,7 @@ class BaseKvmTimer
 
     /** Performance scaling factor */
     float hostFactor;
+    float hostFpFactor;
     /** Host frequency */
     Tick hostFreq;
 };
@@ -194,7 +199,8 @@ class PosixKvmTimer : public BaseKvmTimer
      * @param hostFreq Clock frequency of the host
      */
     PosixKvmTimer(int signo, clockid_t clockID,
-                  float hostFactor, Tick hostFreq);
+                  float hostFactor, float hostFpFactor,
+                  Tick hostFreq);
     ~PosixKvmTimer();
 
     void arm(Tick ticks) override;
@@ -237,7 +243,8 @@ class PerfKvmTimer : public BaseKvmTimer
      */
     PerfKvmTimer(PerfKvmCounter &ctr,
                  int signo,
-                 float hostFactor, Tick hostFreq);
+                 float hostFactor, float hostFpFactor,
+                 Tick hostFreq);
     ~PerfKvmTimer();
 
     void arm(Tick ticks);

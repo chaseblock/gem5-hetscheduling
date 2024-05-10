@@ -51,6 +51,14 @@
 #include "base/logging.hh"
 #include "perfevent.hh"
 
+#include <perfmon/pfmlib.h>
+#include <perfmon/pfmlib_perf_event.h>
+
+#include "base/trace.hh"
+#include "debug/Kvm.hh"
+
+static bool pfm_is_init = false;
+
 namespace gem5
 {
 
@@ -61,6 +69,44 @@ PerfKvmCounterConfig::PerfKvmCounterConfig(uint32_t type, uint64_t config)
     attr.size = PERF_ATTR_SIZE_VER0;
     attr.type = type;
     attr.config = config;
+
+    DPRINTF(Kvm, "Created basic counter config with the following fields: "
+           "{type: %x, size: %x, config: %llx, period: %llx, sample_type: %llx, read_format: %llx}\n",
+            attr.type, attr.size, attr.config,
+            attr.sample_period, attr.sample_type,
+            attr.read_format);
+}
+
+PerfKvmCounterConfig::PerfKvmCounterConfig(const char *event_name)
+{
+    if (!pfm_is_init) {
+        int ret = pfm_initialize();
+        if (ret != PFM_SUCCESS) {
+            panic("KVM: Failed to initialize libpfm: (%i)\n", pfm_strerror(ret));
+        }
+
+        pfm_is_init = true;
+    }
+
+    memset(&attr, 0, sizeof(attr));
+    attr.size = sizeof(attr);
+
+    pfm_perf_encode_arg_t arg;
+    memset(&arg, 0, sizeof(arg));
+
+    arg.size = sizeof(arg);
+    arg.attr = &attr;
+
+    int ret = pfm_get_os_event_encoding(event_name, PFM_PLM0|PFM_PLM3, PFM_OS_PERF_EVENT_EXT, &arg);
+    if (ret != PFM_SUCCESS) {
+        panic("KVM: Failed to get event encoding for event '%s': (%i)\n", event_name, pfm_strerror(ret));
+    }
+
+    DPRINTF(Kvm, "Created counter config with the following fields: "
+           "{type: %x, size: %x, config: %llx, period: %llx, sample_type: %llx, read_format: %llx}\n",
+            attr.type, attr.size, attr.config,
+            attr.sample_period, attr.sample_type,
+            attr.read_format);
 }
 
 PerfKvmCounterConfig::~PerfKvmCounterConfig()

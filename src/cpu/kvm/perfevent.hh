@@ -75,6 +75,7 @@ class PerfKvmCounterConfig
      * @param config Counter configuration
      */
     PerfKvmCounterConfig(uint32_t type, uint64_t config);
+    PerfKvmCounterConfig(const char *event_name);
     ~PerfKvmCounterConfig();
 
     /**

@@ -77,8 +77,9 @@ sysGettid()
 static const uint64_t MIN_HOST_CYCLES = 1000;
 
 PosixKvmTimer::PosixKvmTimer(int signo, clockid_t clockID,
-                             float hostFactor, Tick hostFreq)
-    : BaseKvmTimer(signo, hostFactor, hostFreq),
+                             float hostFactor, float hostFpFactor,
+                             Tick hostFreq)
+    : BaseKvmTimer(signo, hostFactor, hostFpFactor, hostFreq),
       clockID(clockID)
 {
     struct sigevent sev;
@@ -107,8 +108,8 @@ PosixKvmTimer::arm(Tick ticks)
 
     ts.it_interval.tv_sec = 0;
     ts.it_interval.tv_nsec = 0;
-    ts.it_value.tv_sec = hostNs(ticks) / 1000000000ULL;
-    ts.it_value.tv_nsec = hostNs(ticks) % 1000000000ULL;
+    ts.it_value.tv_sec = hostNs(ticks, 0.0) / 1000000000ULL;
+    ts.it_value.tv_nsec = hostNs(ticks, 0.0) % 1000000000ULL;
 
     assert(ts.it_value.tv_nsec > 0 || ts.it_value.tv_sec > 0);
 
@@ -157,20 +158,21 @@ PosixKvmTimer::calcResolution()
     // arm(resolution) is called and the resulting time is 0 (which
     // could happen if we truncate the results and the resolution is
     // 1ns).
-    const Tick resolution(ticksFromHostNs(res_ns) + 1);
+    const Tick resolution(ticksFromHostNs(res_ns, 0.0) + 1);
     // It might not make sense to enter into KVM for less than a
     // certain number of host cycles. In some systems (e.g., Linux)
     // the resolution of the timer we use is 1ns (a few cycles on most
     // CPUs), which isn't very useful.
-    const Tick min_cycles(ticksFromHostCycles(MIN_HOST_CYCLES));
+    const Tick min_cycles(ticksFromHostCycles(MIN_HOST_CYCLES, 0.0));
 
     return std::max(resolution, min_cycles);
 }
 
 
 PerfKvmTimer::PerfKvmTimer(PerfKvmCounter &ctr,
-                           int signo, float hostFactor, Tick hostFreq)
-    : BaseKvmTimer(signo, hostFactor, hostFreq),
+                           int signo, float hostFactor, float hostFpFactor,
+                           Tick hostFreq)
+    : BaseKvmTimer(signo, hostFactor, hostFpFactor, hostFreq),
       hwOverflow(ctr)
 {
     hwOverflow.enableSignals(signo);
@@ -183,7 +185,7 @@ PerfKvmTimer::~PerfKvmTimer()
 void
 PerfKvmTimer::arm(Tick ticks)
 {
-    hwOverflow.period(hostCycles(ticks));
+    hwOverflow.period(hostCycles(ticks, 0.0));
     hwOverflow.refresh(1);
 }
 
@@ -196,7 +198,7 @@ PerfKvmTimer::disarm()
 Tick
 PerfKvmTimer::calcResolution()
 {
-    return ticksFromHostCycles(MIN_HOST_CYCLES);
+    return ticksFromHostCycles(MIN_HOST_CYCLES, 0.0);
 }
 
 } // namespace gem5

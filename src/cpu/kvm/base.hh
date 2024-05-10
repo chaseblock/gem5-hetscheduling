@@ -62,30 +62,41 @@ struct kvm_regs;
 struct kvm_run;
 struct kvm_sregs;
 
+// !!! WARNING !!!
+// Enabling more than two (or maybe three) of these events seems to be too much
+// for the PMU hardware to handle, causing the measurements to silently fail!
+//
+// It might be possible to work around by scheduling separate groups. See:
+// https://stackoverflow.com/questions/61916933/only-2-perf-type-hw-cache-events-in-perf-event-group
+//
+static const uint64_t fp_counters[] = {
+    0x03c7, // Code for "FP_ARITH_INST_RETIRED.SCALAR"
+};
+
 namespace gem5
 {
 
-// forward declarations
-class ThreadContext;
-struct BaseKvmCPUParams;
+  // forward declarations
+  class ThreadContext;
+  struct BaseKvmCPUParams;
 
-/**
- * Base class for KVM based CPU models
- *
- * All architecture specific KVM implementation should inherit from
- * this class. The most basic CPU models only need to override the
- * updateKvmState() and updateThreadContext() methods to implement
- * state synchronization between gem5 and KVM.
- *
- * The architecture specific implementation is also responsible for
- * delivering interrupts into the VM. This is typically done by
- * overriding tick() and checking the thread context before entering
- * into the VM. In order to deliver an interrupt, the implementation
- * then calls KvmVM::setIRQLine() or BaseKvmCPU::kvmInterrupt()
- * depending on the specifics of the underlying hardware/drivers.
- */
-class BaseKvmCPU : public BaseCPU
-{
+  /**
+   * Base class for KVM based CPU models
+   *
+   * All architecture specific KVM implementation should inherit from
+   * this class. The most basic CPU models only need to override the
+   * updateKvmState() and updateThreadContext() methods to implement
+   * state synchronization between gem5 and KVM.
+   *
+   * The architecture specific implementation is also responsible for
+   * delivering interrupts into the VM. This is typically done by
+   * overriding tick() and checking the thread context before entering
+   * into the VM. In order to deliver an interrupt, the implementation
+   * then calls KvmVM::setIRQLine() or BaseKvmCPU::kvmInterrupt()
+   * depending on the specifics of the underlying hardware/drivers.
+   */
+  class BaseKvmCPU : public BaseCPU
+  {
   public:
     BaseKvmCPU(const BaseKvmCPUParams &params);
     virtual ~BaseKvmCPU();
@@ -187,53 +198,53 @@ class BaseKvmCPU : public BaseCPU
      */
     enum Status
     {
-        /** Context not scheduled in KVM.
-         *
-         * The CPU generally enters this state when the guest execute
-         * an instruction that halts the CPU (e.g., WFI on ARM or HLT
-         * on X86) if KVM traps this instruction. Ticks are not
-         * scheduled in this state.
-         *
-         * @see suspendContext()
-         */
-        Idle,
-        /** Running normally.
-         *
-         * This is the normal run state of the CPU. KVM will be
-         * entered next time tick() is called.
-         */
-        Running,
-        /** Requiring service at the beginning of the next cycle.
-         *
-         * The virtual machine has exited and requires service, tick()
-         * will call handleKvmExit() on the next cycle. The next state
-         * after running service is determined in handleKvmExit() and
-         * depends on what kind of service the guest requested:
-         * <ul>
-         *   <li>IO/MMIO (Atomic): RunningServiceCompletion
-         *   <li>IO/MMIO (Timing): RunningMMIOPending
-         *   <li>Halt: Idle
-         *   <li>Others: Running
-         * </ul>
-         */
-        RunningService,
-        /** Timing MMIO request in flight or stalled.
-         *
-         *  The VM has requested IO/MMIO and we are in timing mode.  A timing
-         *  request is either stalled (and will be retried with recvReqRetry())
-         *  or it is in flight.  After the timing request is complete, the CPU
-         *  will transition to the RunningServiceCompletion state.
-         */
-        RunningMMIOPending,
-        /** Service completion in progress.
-         *
-         * The VM has requested service that requires KVM to be
-         * entered once in order to get to a consistent state. This
-         * happens in handleKvmExit() or one of its friends after IO
-         * exits. After executing tick(), the CPU will transition into
-         * the Running or RunningService state.
-         */
-        RunningServiceCompletion,
+      /** Context not scheduled in KVM.
+       *
+       * The CPU generally enters this state when the guest execute
+       * an instruction that halts the CPU (e.g., WFI on ARM or HLT
+       * on X86) if KVM traps this instruction. Ticks are not
+       * scheduled in this state.
+       *
+       * @see suspendContext()
+       */
+      Idle,
+      /** Running normally.
+       *
+       * This is the normal run state of the CPU. KVM will be
+       * entered next time tick() is called.
+       */
+      Running,
+      /** Requiring service at the beginning of the next cycle.
+       *
+       * The virtual machine has exited and requires service, tick()
+       * will call handleKvmExit() on the next cycle. The next state
+       * after running service is determined in handleKvmExit() and
+       * depends on what kind of service the guest requested:
+       * <ul>
+       *   <li>IO/MMIO (Atomic): RunningServiceCompletion
+       *   <li>IO/MMIO (Timing): RunningMMIOPending
+       *   <li>Halt: Idle
+       *   <li>Others: Running
+       * </ul>
+       */
+      RunningService,
+      /** Timing MMIO request in flight or stalled.
+       *
+       *  The VM has requested IO/MMIO and we are in timing mode.  A timing
+       *  request is either stalled (and will be retried with recvReqRetry())
+       *  or it is in flight.  After the timing request is complete, the CPU
+       *  will transition to the RunningServiceCompletion state.
+       */
+      RunningMMIOPending,
+      /** Service completion in progress.
+       *
+       * The VM has requested service that requires KVM to be
+       * entered once in order to get to a consistent state. This
+       * happens in handleKvmExit() or one of its friends after IO
+       * exits. After executing tick(), the CPU will transition into
+       * the Running or RunningService state.
+       */
+      RunningServiceCompletion,
     };
 
     /** CPU run state */
@@ -324,8 +335,9 @@ class BaseKvmCPU : public BaseCPU
      * @param offset Offset as specified by the kvm_run structure
      * @return Pointer to guest data
      */
-    uint8_t *getGuestData(uint64_t offset) const {
-        return (uint8_t *)_kvmRun + offset;
+    uint8_t *getGuestData(uint64_t offset) const
+    {
+      return (uint8_t *)_kvmRun + offset;
     };
 
     /**
@@ -387,15 +399,17 @@ class BaseKvmCPU : public BaseCPU
     void setOneReg(uint64_t id, uint64_t value) { setOneReg(id, &value); }
     void setOneReg(uint64_t id, uint32_t value) { setOneReg(id, &value); }
     void getOneReg(uint64_t id, void *addr) const;
-    uint64_t getOneRegU64(uint64_t id) const {
-        uint64_t value;
-        getOneReg(id, &value);
-        return value;
+    uint64_t getOneRegU64(uint64_t id) const
+    {
+      uint64_t value;
+      getOneReg(id, &value);
+      return value;
     }
-    uint32_t getOneRegU32(uint64_t id) const {
-        uint32_t value;
-        getOneReg(id, &value);
-        return value;
+    uint32_t getOneRegU32(uint64_t id) const
+    {
+      uint32_t value;
+      getOneReg(id, &value);
+      return value;
     }
     /** @} */
 
@@ -581,11 +595,13 @@ class BaseKvmCPU : public BaseCPU
      * value otherwise.
      */
     int ioctl(int request, long p1) const;
-    int ioctl(int request, void *p1) const {
-        return ioctl(request, (long)p1);
+    int ioctl(int request, void *p1) const
+    {
+      return ioctl(request, (long)p1);
     }
-    int ioctl(int request) const {
-        return ioctl(request, 0L);
+    int ioctl(int request) const
+    {
+      return ioctl(request, 0L);
     }
     /** @} */
 
@@ -599,34 +615,34 @@ class BaseKvmCPU : public BaseCPU
     class KVMCpuPort : public RequestPort
     {
 
-      public:
-        KVMCpuPort(const std::string &_name, BaseKvmCPU *_cpu)
-            : RequestPort(_name), cpu(_cpu), activeMMIOReqs(0)
-        { }
-        /**
-         * Interface to send Atomic or Timing IO request.  Assumes that the pkt
-         * and corresponding req have been dynamically allocated and deletes
-         * them both if the system is in atomic mode.
-         */
-        Tick submitIO(PacketPtr pkt);
+    public:
+      KVMCpuPort(const std::string &_name, BaseKvmCPU *_cpu)
+          : RequestPort(_name), cpu(_cpu), activeMMIOReqs(0)
+      {
+      }
+      /**
+       * Interface to send Atomic or Timing IO request.  Assumes that the pkt
+       * and corresponding req have been dynamically allocated and deletes
+       * them both if the system is in atomic mode.
+       */
+      Tick submitIO(PacketPtr pkt);
 
-        /** Returns next valid state after one or more IO accesses */
-        Status nextIOState() const;
+      /** Returns next valid state after one or more IO accesses */
+      Status nextIOState() const;
 
-      protected:
-        /** KVM cpu pointer for finishMMIOPending() callback */
-        BaseKvmCPU *cpu;
+    protected:
+      /** KVM cpu pointer for finishMMIOPending() callback */
+      BaseKvmCPU *cpu;
 
-        /** Pending MMIO packets */
-        std::queue<PacketPtr> pendingMMIOPkts;
+      /** Pending MMIO packets */
+      std::queue<PacketPtr> pendingMMIOPkts;
 
-        /** Number of MMIO requests in flight */
-        unsigned int activeMMIOReqs;
+      /** Number of MMIO requests in flight */
+      unsigned int activeMMIOReqs;
 
-        bool recvTimingResp(PacketPtr pkt) override;
+      bool recvTimingResp(PacketPtr pkt) override;
 
-        void recvReqRetry() override;
-
+      void recvReqRetry() override;
     };
 
     /** Port for data requests */
@@ -780,6 +796,9 @@ class BaseKvmCPU : public BaseCPU
      * @see scheduleInstStop
      */
     std::unique_ptr<PerfKvmCounter> hwInstructions;
+    std::unique_ptr<PerfKvmCounter> hwFpInstructions[sizeof(fp_counters) / sizeof(fp_counters[0])];
+    // std::unique_ptr<PerfKvmCounter> hwUops;
+    // std::unique_ptr<PerfKvmCounter> hwX87Uops;
 
     /**
      * Does the runTimer control the performance counters?
@@ -801,27 +820,28 @@ class BaseKvmCPU : public BaseCPU
 
     /** Host factor as specified in the configuration */
     float hostFactor;
+    float hostFpFactor;
 
   public:
     /* @{ */
     struct StatGroup : public statistics::Group
     {
-        StatGroup(statistics::Group *parent);
-        statistics::Scalar numVMExits;
-        statistics::Scalar numVMHalfEntries;
-        statistics::Scalar numExitSignal;
-        statistics::Scalar numMMIO;
-        statistics::Scalar numCoalescedMMIO;
-        statistics::Scalar numIO;
-        statistics::Scalar numHalt;
-        statistics::Scalar numInterrupts;
-        statistics::Scalar numHypercalls;
+      StatGroup(statistics::Group *parent);
+      statistics::Scalar numVMExits;
+      statistics::Scalar numVMHalfEntries;
+      statistics::Scalar numExitSignal;
+      statistics::Scalar numMMIO;
+      statistics::Scalar numCoalescedMMIO;
+      statistics::Scalar numIO;
+      statistics::Scalar numHalt;
+      statistics::Scalar numInterrupts;
+      statistics::Scalar numHypercalls;
     } stats;
     /* @} */
 
     /** Number of instructions executed by the CPU */
     Counter ctrInsts;
-};
+  };
 
 } // namespace gem5
 

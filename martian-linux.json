@@ -1,0 +1,23 @@
+[
+	{
+		"category": "kernel",
+		"id": "martian-linux",
+		"description": "Martian Linux",
+		"architecture": "X86",
+		"tags": [
+			"idk"
+		],
+		"is_zipped": false,
+		"source": "../gem5-resources/src/linux-kernel/linux/vmlinux",
+		"url": "file:///scratch/Schoolwork/CS523/gem5-resources/src/linux-kernel/linux/vmlinux",
+		"license": "",
+		"author": [],
+		"source_url": "",
+		"resource_version": "5.15.102",
+		"gem5_versions": [
+			"23.1"
+		],
+		"example_usage": "obtain_resource(resource_id=\"martian-linux\")",
+		"md5sum": "b15ee2f8dbce448652f1a9dfdddaf8cc"
+	}
+]

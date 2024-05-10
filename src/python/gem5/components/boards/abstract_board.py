@@ -173,7 +173,12 @@ class AbstractBoard:
 
         :param mem_mode: The memory mode the board is to be set to.
         """
-        self.mem_mode = mem_mode_to_string(mem_mode=mem_mode)
+        if isinstance(mem_mode, str):
+            self.mem_mode = mem_mode
+        elif isinstance(mem_mode, MemMode):
+            self.mem_mode = mem_mode_to_string(mem_mode=mem_mode)
+        else:
+            assert False
 
     def get_clock_domain(self) -> ClockDomain:
         """Get the clock domain.
